@@ -327,6 +327,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62b02a5381cc465bd3041d84623d0fa3b66738b52b8e2fc3bab8ad63ab032f4a"
 
 [[package]]
+name = "keystore"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "argon2",
+ "clap",
+ "rpassword",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -349,18 +361,6 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
-name = "passwds"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "argon2",
- "clap",
- "rpassword",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "password-hash"
