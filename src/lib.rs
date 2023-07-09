@@ -46,7 +46,7 @@ impl Display for Error {
 trait Codec {
     /// Decrypts a cipher text using a password
     /// # Errors
-    /// Returns an [`passwds::Error`] on errors.
+    /// Returns an [`keystore::Error`] on errors.
     fn decrypt(
         &self,
         cipher_text: &[u8],
@@ -62,7 +62,7 @@ trait Codec {
 
     /// Encrypt plain data using a password
     /// # Errors
-    /// Returns an [`passwds::Error`] on errors.
+    /// Returns an [`keystore::Error`] on errors.
     fn encrypt(
         &self,
         plain: &[u8],
@@ -75,7 +75,7 @@ trait Codec {
 
     /// Returns the AES cipher for the given password
     /// # Errors
-    /// Returns an [`passwds::Error`] on errors.
+    /// Returns an [`keystore::Error`] on errors.
     fn cipher(&self, password: &str) -> Result<Aes256Gcm, Error> {
         self.key(password)
             .map(|key| Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key.as_bytes())))
@@ -83,7 +83,7 @@ trait Codec {
 
     /// Returns the encryption key for AES derived with Argon2
     /// # Errors
-    /// Returns an [`passwds::Error`] on errors.
+    /// Returns an [`keystore::Error`] on errors.
     fn key(&self, password: &str) -> Result<Output, Error> {
         Argon2::default()
             .hash_password(password.as_bytes(), self.salt()?)
@@ -94,7 +94,7 @@ trait Codec {
 
     /// Returns the parsed Salt for Argon2
     /// # Errors
-    /// Returns an [`passwds::Error`] on parsing errors.
+    /// Returns an [`keystore::Error`] on parsing errors.
     fn salt(&self) -> Result<Salt, Error>;
 }
 
@@ -108,7 +108,7 @@ pub struct Keystore {
 impl Keystore {
     /// Unlocks the keystore
     /// # Errors
-    /// Returns an [`passwds::Error`] on parsing errors.
+    /// Returns an [`keystore::Error`] on parsing errors.
     pub fn unlock(&self, password: &str) -> Result<UnlockedKeystore, Error> {
         self.decrypt(self.entries.as_slice(), password, self.nonce())
             .and_then(|plain| String::from_utf8(plain).map_err(Error::Utf8Error))
@@ -123,7 +123,7 @@ impl Keystore {
 
     /// Loads the keystore from a file
     /// # Errors
-    /// Returns an [`passwds::Error`] on errors.
+    /// Returns an [`keystore::Error`] on errors.
     pub fn load(filename: impl AsRef<Path>) -> Result<Self, Error> {
         Self::try_from(read_to_string(filename.as_ref()).map_err(Error::IoError)?)
             .map_err(Error::JsonError)
@@ -131,7 +131,7 @@ impl Keystore {
 
     /// Saves the keystore to a file
     /// # Errors
-    /// Returns an [`passwds::Error`] on errors.
+    /// Returns an [`keystore::Error`] on errors.
     pub fn save(&self, filename: impl AsRef<Path>) -> Result<(), Error> {
         serde_json::to_string(self)
             .map_err(Error::JsonError)
@@ -200,7 +200,7 @@ impl UnlockedKeystore {
 
     /// Locks the keystore
     /// # Errors
-    /// Returns an [`passwds::Error`] on parsing errors.
+    /// Returns an [`keystore::Error`] on parsing errors.
     pub fn lock(self, password: &str) -> Result<Keystore, Error> {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         serde_json::to_string::<Vec<Entry>>(self.entries.as_ref())
