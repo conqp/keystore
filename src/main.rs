@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand};
-use passwds::{Error, Keystore, UnlockedKeystore};
+use keystore::{Error, Keystore, UnlockedKeystore};
 use rpassword::read_password;
 use std::io::{stdout, Write};
 use std::path::Path;
@@ -31,13 +31,20 @@ impl Action {
     pub fn run(&self, filename: &str) {
         match self {
             Self::Show => {
-                println!("{}", unlock_or_exit(&open_or_exit(filename)));
+                println!(
+                    "{}",
+                    unlock_or_exit(&open_or_exit(filename), read_password_or_exit().as_str())
+                );
             }
             Self::Add(args) => {
+                let mut password: Option<String> = None;
                 let mut unlocked;
 
                 if let Some(keystore) = open_or_new_or_exit(filename) {
-                    unlocked = unlock_or_exit(&keystore);
+                    eprintln!("Reading 1");
+                    let pw = read_password_or_exit();
+                    unlocked = unlock_or_exit(&keystore, pw.as_str());
+                    password = Some(pw);
                 } else {
                     unlocked = UnlockedKeystore::default();
                 }
@@ -47,7 +54,18 @@ impl Action {
                     args.login.as_deref(),
                     args.url.as_deref(),
                 );
-                save_or_exit(&lock_or_exit(unlocked), filename);
+                save_or_exit(
+                    &lock_or_exit(
+                        unlocked,
+                        password
+                            .unwrap_or_else(|| {
+                                eprintln!("Reading 1");
+                                read_password_or_exit()
+                            })
+                            .as_str(),
+                    ),
+                    filename,
+                );
             }
         }
     }
@@ -95,22 +113,18 @@ fn save_or_exit(keystore: &Keystore, filename: impl AsRef<Path>) {
     });
 }
 
-fn unlock_or_exit(keystore: &Keystore) -> UnlockedKeystore {
-    keystore
-        .unlock(read_password_or_exit().as_str())
-        .unwrap_or_else(|error| {
-            eprintln!("{error:?}");
-            exit(1);
-        })
+fn unlock_or_exit(keystore: &Keystore, password: &str) -> UnlockedKeystore {
+    keystore.unlock(password).unwrap_or_else(|error| {
+        eprintln!("{error:?}");
+        exit(1);
+    })
 }
 
-fn lock_or_exit(unlocked: UnlockedKeystore) -> Keystore {
-    unlocked
-        .lock(read_password_or_exit().as_str())
-        .unwrap_or_else(|error| {
-            eprintln!("{error}");
-            exit(1);
-        })
+fn lock_or_exit(unlocked: UnlockedKeystore, password: &str) -> Keystore {
+    unlocked.lock(password).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        exit(1);
+    })
 }
 
 fn read_password_or_exit() -> String {
