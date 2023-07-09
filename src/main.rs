@@ -56,7 +56,7 @@ impl Action {
                 save_or_exit(
                     &lock_or_exit(
                         unlocked,
-                        password.unwrap_or_else(|| read_password_or_exit()).as_str(),
+                        password.unwrap_or_else(read_password_or_exit).as_str(),
                     ),
                     filename,
                 );
