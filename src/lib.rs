@@ -47,10 +47,15 @@ trait Codec {
     /// Decrypts a cipher text using a password
     /// # Errors
     /// Returns an [`passwds::Error`] on errors.
-    fn decrypt(&self, cipher_text: &[u8], password: &str) -> Result<Vec<u8>, Error> {
+    fn decrypt(
+        &self,
+        cipher_text: &[u8],
+        password: &str,
+        nonce: &Nonce<AesGcm<Aes256, U12>>,
+    ) -> Result<Vec<u8>, Error> {
         self.cipher(password).and_then(|cipher| {
             cipher
-                .decrypt(&self.nonce(), cipher_text)
+                .decrypt(nonce, cipher_text)
                 .map_err(Error::DecryptionError)
         })
     }
@@ -58,12 +63,14 @@ trait Codec {
     /// Encrypt plain data using a password
     /// # Errors
     /// Returns an [`passwds::Error`] on errors.
-    fn encrypt(&self, plain: &[u8], password: &str) -> Result<Vec<u8>, Error> {
-        self.cipher(password).and_then(|cipher| {
-            cipher
-                .encrypt(&self.nonce(), plain)
-                .map_err(Error::EncryptionError)
-        })
+    fn encrypt(
+        &self,
+        plain: &[u8],
+        password: &str,
+        nonce: &Nonce<AesGcm<Aes256, U12>>,
+    ) -> Result<Vec<u8>, Error> {
+        self.cipher(password)
+            .and_then(|cipher| cipher.encrypt(nonce, plain).map_err(Error::EncryptionError))
     }
 
     /// Returns the AES cipher for the given password
@@ -85,8 +92,6 @@ trait Codec {
             .ok_or(Error::NoHash)
     }
 
-    fn nonce(&self) -> Nonce<AesGcm<Aes256, U12>>;
-
     /// Returns the parsed Salt for Argon2
     /// # Errors
     /// Returns an [`passwds::Error`] on parsing errors.
@@ -105,14 +110,13 @@ impl Keystore {
     /// # Errors
     /// Returns an [`passwds::Error`] on parsing errors.
     pub fn unlock(&self, password: &str) -> Result<UnlockedKeystore, Error> {
-        self.decrypt(self.entries.as_slice(), password)
+        self.decrypt(self.entries.as_slice(), password, self.nonce())
             .and_then(|plain| String::from_utf8(plain).map_err(Error::Utf8Error))
             .and_then(|json| {
                 serde_json::from_str::<Vec<Entry>>(json.as_str()).map_err(Error::JsonError)
             })
             .map(|entries| UnlockedKeystore {
                 salt: self.salt.clone(),
-                nonce: self.nonce(),
                 entries,
             })
     }
@@ -141,13 +145,13 @@ impl Keystore {
                     .map(drop)
             })
     }
+
+    fn nonce(&self) -> &Nonce<AesGcm<Aes256, U12>> {
+        Nonce::<AesGcm<Aes256, U12>>::from_slice(self.nonce.as_slice())
+    }
 }
 
 impl Codec for Keystore {
-    fn nonce(&self) -> Nonce<AesGcm<Aes256, U12>> {
-        *Nonce::<AesGcm<Aes256, U12>>::from_slice(self.nonce.as_slice())
-    }
-
     fn salt(&self) -> Result<Salt, Error> {
         Salt::from_b64(self.salt.as_str()).map_err(Error::HashError)
     }
@@ -182,7 +186,6 @@ impl TryFrom<String> for Keystore {
 #[derive(Debug)]
 pub struct UnlockedKeystore {
     salt: String,
-    nonce: Nonce<AesGcm<Aes256, U12>>,
     entries: Vec<Entry>,
 }
 
@@ -199,12 +202,13 @@ impl UnlockedKeystore {
     /// # Errors
     /// Returns an [`passwds::Error`] on parsing errors.
     pub fn lock(self, password: &str) -> Result<Keystore, Error> {
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         serde_json::to_string::<Vec<Entry>>(self.entries.as_ref())
             .map_err(Error::JsonError)
-            .and_then(|json| self.encrypt(json.as_bytes(), password))
+            .and_then(|json| self.encrypt(json.as_bytes(), password, &nonce))
             .map(|cipher_text| Keystore {
                 salt: self.salt.to_string(),
-                nonce: Vec::from(self.nonce.as_slice()),
+                nonce: Vec::from(nonce.as_slice()),
                 entries: cipher_text,
             })
     }
@@ -215,10 +219,6 @@ impl UnlockedKeystore {
 }
 
 impl Codec for UnlockedKeystore {
-    fn nonce(&self) -> Nonce<AesGcm<Aes256, U12>> {
-        self.nonce
-    }
-
     fn salt(&self) -> Result<Salt, Error> {
         Salt::from_b64(self.salt.as_str()).map_err(Error::HashError)
     }
@@ -228,7 +228,6 @@ impl Default for UnlockedKeystore {
     fn default() -> Self {
         Self {
             salt: SaltString::generate(&mut OsRng).as_salt().to_string(),
-            nonce: Aes256Gcm::generate_nonce(&mut OsRng),
             entries: Vec::new(),
         }
     }
