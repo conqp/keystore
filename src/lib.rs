@@ -35,8 +35,8 @@ impl Display for Error {
             Self::IoError(error) => <std::io::Error as Display>::fmt(error, f),
             Self::HashError(error) => <password_hash::Error as Display>::fmt(error, f),
             Self::NoHash => write!(f, "could not generate hash"),
-            Self::EncryptionError(error) | Self::DecryptionError(error) => {
-                <aes_gcm::Error as Display>::fmt(error, f)
+            Self::EncryptionError(_) | Self::DecryptionError(_) => {
+                write!(f, "wrong password")
             }
             Self::Utf8Error(error) => <FromUtf8Error as Display>::fmt(error, f),
         }
