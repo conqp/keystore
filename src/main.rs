@@ -41,7 +41,6 @@ impl Action {
                 let mut unlocked;
 
                 if let Some(keystore) = open_or_new_or_exit(filename) {
-                    eprintln!("Reading 1");
                     let pw = read_password_or_exit();
                     unlocked = unlock_or_exit(&keystore, pw.as_str());
                     password = Some(pw);
@@ -57,12 +56,7 @@ impl Action {
                 save_or_exit(
                     &lock_or_exit(
                         unlocked,
-                        password
-                            .unwrap_or_else(|| {
-                                eprintln!("Reading 1");
-                                read_password_or_exit()
-                            })
-                            .as_str(),
+                        password.unwrap_or_else(|| read_password_or_exit()).as_str(),
                     ),
                     filename,
                 );
@@ -108,14 +102,14 @@ fn open_or_new_or_exit(filename: impl AsRef<Path>) -> Option<Keystore> {
 
 fn save_or_exit(keystore: &Keystore, filename: impl AsRef<Path>) {
     keystore.save(filename).unwrap_or_else(|error| {
-        eprintln!("{error:?}");
+        eprintln!("{error}");
         exit(1);
     });
 }
 
 fn unlock_or_exit(keystore: &Keystore, password: &str) -> UnlockedKeystore {
     keystore.unlock(password).unwrap_or_else(|error| {
-        eprintln!("{error:?}");
+        eprintln!("{error}");
         exit(1);
     })
 }
