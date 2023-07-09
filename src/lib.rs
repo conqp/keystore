@@ -1,11 +1,13 @@
-use aes_gcm::aead::consts::U12;
-use aes_gcm::aead::{Aead, Nonce, OsRng};
-use aes_gcm::aes::Aes256;
-use aes_gcm::{AeadCore, Aes256Gcm, AesGcm, Key, KeyInit};
-use argon2::password_hash::{Output, Salt, SaltString};
-use argon2::{password_hash, Argon2, PasswordHasher};
-use serde::ser::Error as _;
-use serde::{Deserialize, Serialize};
+use aes_gcm::{
+    aead::{consts::U12, Aead, Nonce, OsRng},
+    aes::Aes256,
+    AeadCore, Aes256Gcm, AesGcm, Key, KeyInit,
+};
+use argon2::{
+    password_hash::{self, Output, Salt, SaltString},
+    Argon2, PasswordHasher,
+};
+use serde::{ser::Error as _, Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter};
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::{Read, Write};
